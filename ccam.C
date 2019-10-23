@@ -1,11 +1,13 @@
 #include <stdio.h>
 
-#include "bcm_host.h"
-#include "interface/vcos/vcos.h"
+//#include "bcm_host.h"
+//#include "interface/vcos/vcos.h"
 
 #include "interface/mmal/mmal.h"
 #include "interface/mmal/util/mmal_default_components.h"
-#include "interface/mmal/util/mmal_connection.h"
+#include "interface/mmal/util/mmal_util.h"
+#include "interface/mmal/util/mmal_util_params.h"
+//#include "interface/mmal/util/mmal_connection.h"
 
 #define MMAL_CAMERA_VIDEO_PORT 1
 
@@ -19,19 +21,6 @@
 // http://www.airspayce.com/mikem/bcm2835/
 // https://www.airspayce.com/mikem/bcm2835/spi_8c-example.html
 // https://www.mbtechworks.com/hardware/raspberry-pi-UART-SPI-I2C.html
-
-int main(int argn, char** argv) {
-	printf("Setup\n");
-	MMAL_COMPONENT_T* camera = setup(640, 480, 30);
-	if (camera != NULL) {
-		
-		mmal_component_destroy ( camera );
-	} else {
-		printf("Error setup camera\n");
-	}
-	return 0;
-}
-
 
 
 // modes: https://picamera.readthedocs.io/en/release-1.12/fov.html
@@ -48,12 +37,12 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
 
     if ( status != MMAL_SUCCESS ) {
 		// http://www.jvcref.com/files/PI/documentation/html/group___mmal_types.html#ga5cf856e743410d3a43dd395209cb61ab
-        cerr<< ( "Failed to create camera component (%u)", status );
+        printf( "Failed to create camera component (%u)\n", status );
         return NULL;
     }
 
     if ( !camera->output_num ) {
-        cerr<< ( "Camera doesn't have output ports" );
+        printf( "Camera doesn't have output ports\n" );
         mmal_component_destroy ( camera );
         return NULL;
     }
@@ -80,7 +69,7 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
 	// http://www.jvcref.com/files/PI/documentation/html/struct_m_m_a_l___e_s___f_o_r_m_a_t___t.html
 	MMAL_ES_FORMAT_T* format = video_port->format;
 
-    format->encoding = MAL_ENCODING_RGB24;
+    format->encoding = MMAL_ENCODING_RGB24;
     //format->encoding_variant = MMAL_ENCODING_I420;
 
     format->es->video.width = width;
@@ -121,7 +110,7 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
 
     status = mmal_component_enable(camera);
 	if ( status ) {
-        cerr<< ( "camera component couldn't be enabled" );
+        printf( "camera component couldn't be enabled: %u\n", status );
         mmal_component_destroy ( camera );
         return NULL;
     }
@@ -143,4 +132,16 @@ void stop(MMAL_COMPONENT_T* camera) {
 	if (status != MMAL_SUCCESS) {
         printf("Failed to stop capture: %u\n", status);
     }
+}
+
+int main(int argn, char** argv) {
+	printf("Setup\n");
+	MMAL_COMPONENT_T* camera = setup(640, 480, 30);
+	if (camera != NULL) {
+		
+		mmal_component_destroy ( camera );
+	} else {
+		printf("Error setup camera\n");
+	}
+	return 0;
 }
