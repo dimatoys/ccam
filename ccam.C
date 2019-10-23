@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <string.h
 
-//#include "bcm_host.h"
+// https://www.airspayce.com/mikem/bcm2835/
+#include "bcm_host.h"
 //#include "interface/vcos/vcos.h"
 
 #include "interface/mmal/mmal.h"
@@ -12,7 +14,6 @@
 #define MMAL_CAMERA_VIDEO_PORT 1
 
 // Camera
-// http://robotblogging.blogspot.com/2013/10/an-efficient-and-simple-c-api-for.html
 // https://github.com/cedricve/raspicam/blob/master/src/private/private_impl.cpp
 // https://github.com/tasanakorn/rpi-mmal-demo/blob/develop/buffer_demo.c
 
@@ -22,13 +23,75 @@
 // https://www.airspayce.com/mikem/bcm2835/spi_8c-example.html
 // https://www.mbtechworks.com/hardware/raspberry-pi-UART-SPI-I2C.html
 
+// https://www.raspberrypi.org/app/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
+
 
 // modes: https://picamera.readthedocs.io/en/release-1.12/fov.html
+
+class FramesBuffer {
+	int      FrameSize;
+	uint8_t* Buffer;
+	int      Frames;
+public:
+	int      CurrentFrame;
+
+	FramesBuffer(int frame_size, int frames) {
+		FrameSize = frame_size;
+		Frames = frames;
+		Buffer = new uint8_t[FrameSize * Frames];
+		CurrentFrame = 0;
+	}
+		
+	bool HasMoreSpace() {
+		return CurrentFrame < Frames;
+	}
+		
+	bool AddFrame(const void* frame) {
+		if (CurrentFrame < Frames) {
+			memcpy(Buffer + CurrentFrame++ * FrameSize, frame, FrameSize);
+		}
+		return HasMoreSpace();
+	}
+		
+	uint8_t* GetFrame(int frame) {
+		return Buffer + frame * FrameSize;
+	}
+		
+	~FramesBuffer() {
+		delete Buffer;
+	}
+};
+
+FramesBuffer fbuffer = NULL;
+MMAL_COMPONENT_T* camera_component = NULL;
+
+void start(MMAL_COMPONENT_T* camera) {
+	printf("%llu: START recording\n", bcm2835_st_read());
+	MMAL_PORT_T* video_port = camera->output[MMAL_CAMERA_VIDEO_PORT];
+	MMAL_STATUS_T status = mmal_port_parameter_set_boolean(video_port, MMAL_PARAMETER_CAPTURE, 1);
+	if (status != MMAL_SUCCESS) {
+        printf("Failed to start capture: %u\n", status);
+    }
+}
+
+void stop(MMAL_COMPONENT_T* camera) {
+	printf("%llu: STOP recording\n", bcm2835_st_read());
+	MMAL_PORT_T* video_port = camera->output[MMAL_CAMERA_VIDEO_PORT];
+	MMAL_STATUS_T status = mmal_port_parameter_set_boolean(video_port, MMAL_PARAMETER_CAPTURE, 0);
+	if (status != MMAL_SUCCESS) {
+        printf("Failed to stop capture: %u\n", status);
+    }
+}
 
 static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 	// https://github.com/raspberrypi/userland/blob/master/interface/mmal/mmal_buffer.h
 	// http://www.jvcref.com/files/PI/documentation/html/struct_m_m_a_l___b_u_f_f_e_r___h_e_a_d_e_r___t.html
+	printf("%llu: CALLBACK\n", bcm2835_st_read());
+	bool hasMoreSpace = fbuffer.AddFrame(buffer.data + buffer.offset);
 	mmal_buffer_header_release(buffer);
+	if (!hasMoreSpace) {
+		stop(camera_component);
+	}
 }
 
 MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
@@ -118,28 +181,20 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
 	return camera;
 }
 
-void start(MMAL_COMPONENT_T* camera) {
-	MMAL_PORT_T* video_port = camera->output[MMAL_CAMERA_VIDEO_PORT];
-	MMAL_STATUS_T status = mmal_port_parameter_set_boolean(video_port, MMAL_PARAMETER_CAPTURE, 1);
-	if (status != MMAL_SUCCESS) {
-        printf("Failed to start capture: %u\n", status);
-    }
-}
-
-void stop(MMAL_COMPONENT_T* camera) {
-	MMAL_PORT_T* video_port = camera->output[MMAL_CAMERA_VIDEO_PORT];
-	MMAL_STATUS_T status = mmal_port_parameter_set_boolean(video_port, MMAL_PARAMETER_CAPTURE, 0);
-	if (status != MMAL_SUCCESS) {
-        printf("Failed to stop capture: %u\n", status);
-    }
-}
-
 int main(int argn, char** argv) {
 	printf("Setup\n");
-	MMAL_COMPONENT_T* camera = setup(640, 480, 30);
-	if (camera != NULL) {
+	camera_component = setup(640, 480, 30);
+	if (camera_component != NULL) {
+		fbuffer = new FramesBuffer(camera_component->output[MMAL_CAMERA_VIDEO_PORT]->buffer_size, 100);
+		// bcm2835_delay(2000);
+		start(camera_component);
+		// delay 
+		// start_recording
+		bcm2835_delay(5000);
+		mmal_component_destroy ( camera_component );
 		
-		mmal_component_destroy ( camera );
+		printf("%d frames recorded\n", fbuffer.CurrentFrame);
+		
 	} else {
 		printf("Error setup camera\n");
 	}
