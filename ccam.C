@@ -1,9 +1,11 @@
 #include <stdio.h>
-#include <string.h
+#include <string.h>
 
 // https://www.airspayce.com/mikem/bcm2835/
-#include "bcm_host.h"
+//#include "bcm_host.h"
 //#include "interface/vcos/vcos.h"
+
+#include <bcm2835.h>
 
 #include "interface/mmal/mmal.h"
 #include "interface/mmal/util/mmal_default_components.h"
@@ -62,7 +64,7 @@ public:
 	}
 };
 
-FramesBuffer fbuffer = NULL;
+FramesBuffer* fbuffer = NULL;
 MMAL_COMPONENT_T* camera_component = NULL;
 
 void start(MMAL_COMPONENT_T* camera) {
@@ -87,7 +89,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	// https://github.com/raspberrypi/userland/blob/master/interface/mmal/mmal_buffer.h
 	// http://www.jvcref.com/files/PI/documentation/html/struct_m_m_a_l___b_u_f_f_e_r___h_e_a_d_e_r___t.html
 	printf("%llu: CALLBACK\n", bcm2835_st_read());
-	bool hasMoreSpace = fbuffer.AddFrame(buffer.data + buffer.offset);
+	bool hasMoreSpace = fbuffer->AddFrame(buffer->data + buffer->offset);
 	mmal_buffer_header_release(buffer);
 	if (!hasMoreSpace) {
 		stop(camera_component);
@@ -193,7 +195,7 @@ int main(int argn, char** argv) {
 		bcm2835_delay(5000);
 		mmal_component_destroy ( camera_component );
 		
-		printf("%d frames recorded\n", fbuffer.CurrentFrame);
+		printf("%d frames recorded\n", fbuffer->CurrentFrame);
 		
 	} else {
 		printf("Error setup camera\n");
