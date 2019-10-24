@@ -13,6 +13,8 @@
 #include "interface/mmal/util/mmal_util_params.h"
 //#include "interface/mmal/util/mmal_connection.h"
 
+#include "jpeg.h"
+
 #define MMAL_CAMERA_VIDEO_PORT 1
 
 // Camera
@@ -185,7 +187,12 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
 
 int main(int argn, char** argv) {
 	printf("Setup\n");
-	camera_component = setup(640, 480, 30);
+	uint32_t width = 640;
+	uint32_t height = 480;
+	uint32_t depth = 3;
+	uint32_t fps = 30;
+	bcm2835_init();
+	camera_component = setup(width, height, fps);
 	if (camera_component != NULL) {
 		fbuffer = new FramesBuffer(camera_component->output[MMAL_CAMERA_VIDEO_PORT]->buffer_size, 100);
 		// bcm2835_delay(2000);
@@ -196,6 +203,11 @@ int main(int argn, char** argv) {
 		mmal_component_destroy ( camera_component );
 		
 		printf("%d frames recorded\n", fbuffer->CurrentFrame);
+		char filename[100];
+		for (int i = 0; i < fbuffer->CurrentFrame; ++i) {
+			sprintf(filename, "%03d.jpg", i);
+			write_jpeg_file(filename, fbuffer->GetFrame(i), width, height, depth);
+		}
 		
 	} else {
 		printf("Error setup camera\n");
