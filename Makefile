@@ -1,5 +1,6 @@
 ACCOUNT=pi@10.0.0.232
 PPATH=projects/ccam
+PICS=
 
 LDFLAGS =  -g -Wall -lstdc++ -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_components -lmmal_util -lmmal_core -lbcm2835 -ljpeg
 
@@ -9,15 +10,22 @@ LDFLAGS =  -g -Wall -lstdc++ -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_compon
 shutdown:
 	ssh ${ACCOUNT} "sudo shutdown -h now"
 
-rccam:
+run:
 	rsync -r . ${ACCOUNT}:${PPATH}
-	ssh ${ACCOUNT} "cd ${PPATH} ; make eccam"
+	ssh ${ACCOUNT} "cd ${PPATH} ; make local_run"
+
+build:
+	rsync -r . ${ACCOUNT}:${PPATH}
+	ssh ${ACCOUNT} "cd ${PPATH} ; make ccam"
 
 ccam: ccam.o jpeg.o
-	g++ $(LDFLAGS) $^ -o $@
+	g++ $^ $(LDFLAGS) -o $@
 
-eccam: ccam
-	./ccam
+local_run: ccam
+	sudo ./ccam
+
+local_cleanpics:
+	rm ~/${PPATH}/../ccampic/* 
 
 test:
 	ssh ${ACCOUNT} "/opt/vc/bin/raspistill -o firstpic.jpg"

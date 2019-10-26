@@ -66,6 +66,14 @@ public:
 	}
 };
 
+uint8_t countSum(uint8_t* data, uint32_t length) {
+	uint8_t sum = 0;
+	for (uint32_t i = 0; i < length; ++i) {
+		sum += data[i];
+	}
+	return sum;
+}
+
 FramesBuffer* fbuffer = NULL;
 MMAL_COMPONENT_T* camera_component = NULL;
 
@@ -87,14 +95,37 @@ void stop(MMAL_COMPONENT_T* camera) {
     }
 }
 
+void dumpBuffer(MMAL_BUFFER_HEADER_T *buffer) {
+	uint8_t sum = countSum(buffer->data + buffer->offset, buffer->length);
+	printf("BUFFER: %X data=%X length=%u pts=%llu sum=%u\n",
+				buffer,
+				buffer->data,
+				buffer->length,
+				buffer->pts,
+				(uint32_t)sum);
+}
+
 static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 	// https://github.com/raspberrypi/userland/blob/master/interface/mmal/mmal_buffer.h
 	// http://www.jvcref.com/files/PI/documentation/html/struct_m_m_a_l___b_u_f_f_e_r___h_e_a_d_e_r___t.html
-	printf("%llu: CALLBACK\n", bcm2835_st_read());
+	//printf("%llu: CALLBACK port=%s \n", bcm2835_st_read(),port->is_enabled ? "ENABLES" : "DISABLED");
+	//dumpBuffer(buffer);
 	bool hasMoreSpace = fbuffer->AddFrame(buffer->data + buffer->offset);
 	mmal_buffer_header_release(buffer);
 	if (!hasMoreSpace) {
 		stop(camera_component);
+		return;
+	}
+	if (port->is_enabled) {
+		MMAL_STATUS_T status;
+		MMAL_BUFFER_HEADER_T* new_buffer = mmal_queue_get ( ((MMAL_POOL_T*)(port->userdata))->queue );
+		if ( new_buffer ) {
+			dumpBuffer(new_buffer);
+			status = mmal_port_send_buffer ( port, new_buffer );
+		}
+		if ( !new_buffer || status != MMAL_SUCCESS ) {
+			printf ( "Unable to return a buffer to the encoder port" );
+		}
 	}
 }
 
@@ -115,19 +146,19 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
     }
 
     MMAL_PORT_T* video_port = camera->output[MMAL_CAMERA_VIDEO_PORT];
-	
+
 	// https://raw.githubusercontent.com/raspberrypi/userland/master/interface/mmal/mmal_parameters_camera.h
 	MMAL_PARAMETER_CAMERA_CONFIG_T cam_config;
     cam_config.hdr.id=MMAL_PARAMETER_CAMERA_CONFIG;
     cam_config.hdr.size=sizeof ( cam_config );
-    //cam_config.max_stills_w = state->width;
-    //cam_config.max_stills_h = state->height;
-    //cam_config.stills_yuv422 = 0;
-    //cam_config.one_shot_stills = 0;
-    cam_config.max_preview_video_w = width;
+    cam_config.max_stills_w = width;/**< Max size of stills capture */
+    cam_config.max_stills_h = height;
+    cam_config.stills_yuv422 = 0;/**< Allow YUV422 stills capture */
+    cam_config.one_shot_stills = 0;
+    cam_config.max_preview_video_w = width;/**< Max size of the preview or video capture frames */
     cam_config.max_preview_video_h = height;
     cam_config.num_preview_video_frames = 3;
-    //cam_config.stills_capture_circular_buffer_height = 0;
+    cam_config.stills_capture_circular_buffer_height = 0;
     cam_config.fast_preview_resume = 0;
     cam_config.use_stc_timestamp = MMAL_PARAM_TIMESTAMP_MODE_RESET_STC;
     
@@ -181,6 +212,18 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
         mmal_component_destroy ( camera );
         return NULL;
     }
+    
+    int num = mmal_queue_length(video_port_pool->queue);
+    printf("qnum=%d\n", num);
+    for (int q = 0; q < num; q++) {
+        MMAL_BUFFER_HEADER_T *buffer = mmal_queue_get(video_port_pool->queue);
+
+        if (!buffer)
+            printf("Unable to get a required buffer %d from pool queue\n", q);
+
+        if (mmal_port_send_buffer(video_port, buffer) != MMAL_SUCCESS)
+                printf("Unable to send a buffer to encoder output port (%d)\n", q);
+    }
 
 	return camera;
 }
@@ -194,21 +237,23 @@ int main(int argn, char** argv) {
 	bcm2835_init();
 	camera_component = setup(width, height, fps);
 	if (camera_component != NULL) {
-		fbuffer = new FramesBuffer(camera_component->output[MMAL_CAMERA_VIDEO_PORT]->buffer_size, 100);
+		fbuffer = new FramesBuffer(camera_component->output[MMAL_CAMERA_VIDEO_PORT]->buffer_size, 150);
 		// bcm2835_delay(2000);
 		start(camera_component);
 		// delay 
 		// start_recording
-		bcm2835_delay(5000);
+		bcm2835_delay(10000);
+		stop(camera_component);
 		mmal_component_destroy ( camera_component );
 		
 		printf("%d frames recorded\n", fbuffer->CurrentFrame);
+		/*
 		char filename[100];
 		for (int i = 0; i < fbuffer->CurrentFrame; ++i) {
-			sprintf(filename, "%03d.jpg", i);
+			sprintf(filename, "../ccampic/%03d.jpg", i);
 			write_jpeg_file(filename, fbuffer->GetFrame(i), width, height, depth);
 		}
-		
+		*/
 	} else {
 		printf("Error setup camera\n");
 	}
