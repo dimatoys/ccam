@@ -109,7 +109,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	// https://github.com/raspberrypi/userland/blob/master/interface/mmal/mmal_buffer.h
 	// http://www.jvcref.com/files/PI/documentation/html/struct_m_m_a_l___b_u_f_f_e_r___h_e_a_d_e_r___t.html
 	//printf("%llu: CALLBACK port=%s \n", bcm2835_st_read(),port->is_enabled ? "ENABLES" : "DISABLED");
-	//dumpBuffer(buffer);
+	dumpBuffer(buffer);
 	bool hasMoreSpace = fbuffer->AddFrame(buffer->data + buffer->offset);
 	mmal_buffer_header_release(buffer);
 	if (!hasMoreSpace) {
@@ -120,7 +120,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		MMAL_STATUS_T status;
 		MMAL_BUFFER_HEADER_T* new_buffer = mmal_queue_get ( ((MMAL_POOL_T*)(port->userdata))->queue );
 		if ( new_buffer ) {
-			dumpBuffer(new_buffer);
+			//dumpBuffer(new_buffer);
 			status = mmal_port_send_buffer ( port, new_buffer );
 		}
 		if ( !new_buffer || status != MMAL_SUCCESS ) {
@@ -228,7 +228,7 @@ MMAL_COMPONENT_T* setup(uint32_t width, uint32_t height, uint32_t frames) {
 	return camera;
 }
 
-int main(int argn, char** argv) {
+void testCamera() {
 	printf("Setup\n");
 	uint32_t width = 640;
 	uint32_t height = 480;
@@ -257,5 +257,64 @@ int main(int argn, char** argv) {
 	} else {
 		printf("Error setup camera\n");
 	}
+}
+
+// exa: https://raspberrypi.stackexchange.com/questions/76109/raspberry-as-an-i2c-slave
+// doc: http://abyz.me.uk/rpi/pigpio/cif.html#bscXfer
+// src: https://github.com/joan2937/pigpio/blob/master/pigpio.c
+
+/*
+pi@raspberrypi:~ $ pinout
+.-------------------------.
+| 55GoooGooGooooGoGooo J8 |
+| 3oooGooo3oooGooooooG   |c
+---+       +---+ PiZero W|s
+ sd|       |SoC|   V1.1  |i
+---+|hdmi| +---+  usb pwr |
+`---|    |--------| |-| |-'
+
+Revision           : 9000c1
+SoC                : BCM2835
+RAM                : 512Mb
+Storage            : MicroSD
+USB ports          : 1 (excluding power)
+Ethernet ports     : 0
+Wi-fi              : True
+Bluetooth          : True
+Camera ports (CSI) : 1
+Display ports (DSI): 0
+
+J8:
+   3V3  (1) (2)  5V
+ GPIO2  (3) (4)  5V
+ GPIO3  (5) (6)  GND
+ GPIO4  (7) (8)  GPIO14
+   GND  (9) (10) GPIO15
+GPIO17 (11) (12) GPIO18
+GPIO27 (13) (14) GND
+GPIO22 (15) (16) GPIO23
+   3V3 (17) (18) GPIO24
+GPIO10 (19) (20) GND
+ GPIO9 (21) (22) GPIO25
+GPIO11 (23) (24) GPIO8
+   GND (25) (26) GPIO7
+ GPIO0 (27) (28) GPIO1
+ GPIO5 (29) (30) GND
+ GPIO6 (31) (32) GPIO12
+GPIO13 (33) (34) GND
+GPIO19 (35) (36) GPIO16
+GPIO26 (37) (38) GPIO20
+   GND (39) (40) GPIO21
+
+*/
+
+void testMasterSPI() {
+
+}
+
+
+
+int main(int argn, char** argv) {
+	testCamera();
 	return 0;
 }

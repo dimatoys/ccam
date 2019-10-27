@@ -1,4 +1,7 @@
-ACCOUNT=pi@10.0.0.232
+#ACCOUNT=pi@10.0.0.232
+#ACCOUNT=pi@10.0.0.117
+ACCOUNT=pi@10.0.0.147
+
 PPATH=projects/ccam
 PICS=
 
