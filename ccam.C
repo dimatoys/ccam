@@ -359,6 +359,35 @@ EN *s enable BSC peripheral
 
 */
 
+/*
+
+SSSSS	number of bytes successfully copied to transmit FIFO
+RRRRR	number of bytes in receieve FIFO
+TTTTT	number of bytes in transmit FIFO
+RB	receive busy
+TE	transmit FIFO empty
+RF	receive FIFO full
+TF	transmit FIFO full
+RE	receive FIFO empty
+TB	transmit busy
+
+S S S S |  S R R R | R R T T | T T T RB | TE TF RE TB
+
+
+STATUS0: 10406
+STATUS: 406
+STATUS: C04
+STATUS: 406
+RX: 00
+STATUS: C04
+STATUS: 406
+RX: 00
+* 
+* 
+*  
+*/
+
+
 void testSlaveSPI() {
 	bsc_xfer_t xfer;
     gpioInitialise();
