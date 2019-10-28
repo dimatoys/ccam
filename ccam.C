@@ -309,12 +309,97 @@ GPIO26 (37) (38) GPIO20
 */
 
 void testMasterSPI() {
+    // If you call this, it will not actually access the GPIO
+    // Use for testing
+     //        bcm2835_set_debug(1);
+    if (!bcm2835_init())
+    {
+      printf("bcm2835_init failed. Are you running as root??\n");
+      return 1;
+    }
+    if (!bcm2835_spi_begin())
+    {
+      printf("bcm2835_spi_begin failed. Are you running as root??\n");
+      return 1;
+    }
+    bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);      // The default
+    bcm2835_spi_setDataMode(BCM2835_SPI_MODE0);                   // The default
+    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_65536); // The default
+    bcm2835_spi_chipSelect(BCM2835_SPI_CS0);                      // The default
+    bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);      // the default
+    
+	char* tbuf = "0123456789";
+	char rbuf[20];
+	len = 10;
+	
+	bcm2835_spi_transfernb	(tbuf,rbuf,10);	
 
+    bcm2835_spi_end();
+    bcm2835_close();
 }
 
+#include <pigpio.h>
 
+/*
+
+IT    invert transmit status flags
+HC    enable host control
+
+TF    enable test FIFO
+IR    invert receive status flags
+RE *s enable receive
+TE *s enable transmit
+
+BK    abort operation and clear FIFOs
+EC    send control register as first I2C byte
+ES    send status register as first I2C byte
+PL    set SPI polarity high
+
+PH	  set SPI phase high
+I2 *  enable I2C mode
+SP  s enable SPI mode
+EN *s enable BSC peripheral
+
+*/
+
+void testSlaveSPI() {
+	bsc_xfer_t xfer;
+    gpioInitialise();
+    //xfer.control = (0x0A<<16) | 0x305; // Set I2C slave Address to 0x0A
+	xfer.control = 0x303;
+    int status = bscXfer(&xfer);
+    if (status >= 0) {
+        xfer.rxCnt = 0;
+		xfer.txCnt = 5;
+		memcpy(xfer.txBuf, "abcde", 5);
+        while(1) {
+			status = bscXfer(&xfer);
+			printf("STATUS: %0X\n", status);
+            if (xfer.rxCnt > 0) {
+				char buffer[20];
+				memcpy(buffer, xfer.rxBuf, xfer.rxCnt);
+				xfer.rxBuf[xfer.rxCnt] = 0;
+				printf("RX: %s\n", buffer);
+            }
+       }
+    } else {
+		printf("cannot initialize SPI %d\n", status);
+	}
+}
 
 int main(int argn, char** argv) {
-	testCamera();
+	if (argn > 1) {
+		switch(argv[1][0]) {
+		case 'c':
+			testCamera();
+			break;
+		case 'm':
+			testMasterSPI();
+			break;
+		case 's':
+			testSlaveSPI();
+			break;
+		}
+	}
 	return 0;
 }
