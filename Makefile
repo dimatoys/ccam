@@ -5,7 +5,7 @@ ACCOUNT2=pi@10.0.0.147
 PPATH=projects/ccam
 PICS=
 
-LDFLAGS =  -g -Wall -lstdc++ -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_components -lmmal_util -lmmal_core -lbcm2835 -ljpeg
+LDFLAGS =  -g -Wall -lstdc++ -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_components -lmmal_util -lmmal_core -lbcm2835 -ljpeg -lpigpio
 
 %.o : %.C
 	g++ -g -Wall -std=c++11 -I/opt/vc/include -c $< -o $@

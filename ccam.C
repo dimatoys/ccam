@@ -315,24 +315,21 @@ void testMasterSPI() {
     if (!bcm2835_init())
     {
       printf("bcm2835_init failed. Are you running as root??\n");
-      return 1;
+      return;
     }
-    if (!bcm2835_spi_begin())
-    {
-      printf("bcm2835_spi_begin failed. Are you running as root??\n");
-      return 1;
-    }
+    bcm2835_spi_begin();
     bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);      // The default
     bcm2835_spi_setDataMode(BCM2835_SPI_MODE0);                   // The default
     bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_65536); // The default
     bcm2835_spi_chipSelect(BCM2835_SPI_CS0);                      // The default
     bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);      // the default
     
-	char* tbuf = "0123456789";
+	char* tbuf = (char*)"0123456789";
 	char rbuf[20];
-	len = 10;
-	
-	bcm2835_spi_transfernb	(tbuf,rbuf,10);	
+
+	//bcm2835_spi_transfernb(tbuf,rbuf,10);	
+	uint8_t v = bcm2835_spi_transfer(0x34);
+	printf("v=%X\n", (uint32_t)v);
 
     bcm2835_spi_end();
     bcm2835_close();
@@ -369,17 +366,23 @@ void testSlaveSPI() {
 	xfer.control = 0x303;
     int status = bscXfer(&xfer);
     if (status >= 0) {
+		printf("STATUS0: %0X\n", status);
+		int last_status = status;
         xfer.rxCnt = 0;
 		xfer.txCnt = 5;
 		memcpy(xfer.txBuf, "abcde", 5);
         while(1) {
 			status = bscXfer(&xfer);
-			printf("STATUS: %0X\n", status);
+			if (last_status != status) {
+				printf("STATUS: %0X\n", status);
+				last_status = status;
+			}
             if (xfer.rxCnt > 0) {
-				char buffer[20];
-				memcpy(buffer, xfer.rxBuf, xfer.rxCnt);
-				xfer.rxBuf[xfer.rxCnt] = 0;
-				printf("RX: %s\n", buffer);
+				printf("RX:");
+				for (int i = 0; i < xfer.rxCnt; ++i) {
+					printf(" %02X", (uint32_t)xfer.rxBuf[i]);
+				}
+				printf("\n");
             }
        }
     } else {
