@@ -741,3 +741,114 @@ int main(int argn, char** argv) {
 	}
 	return 0;
 }
+/*
+static int fdMem        = -1;
+static volatile uint32_t * bscsReg = MAP_FAILED;
+
+void init(){
+	if ((fdMem = open("/dev/mem", O_RDWR | O_SYNC) ) < 0)
+   {
+      DBG(DBG_ALWAYS,
+         "\n" \
+         "+---------------------------------------------------------+\n" \
+         "|Sorry, you don't have permission to run this program.    |\n" \
+         "|Try running as root, e.g. precede the command with sudo. |\n" \
+         "+---------------------------------------------------------+\n\n");
+      return -1;
+   }
+	
+	bscsReg  = initMapMem(fdMem, BSCS_BASE,  BSCS_LEN);
+	if (bscsReg == MAP_FAILED){
+		printf("error");
+	}
+
+}
+
+void bscInit2(int mode)
+{
+   bscsReg[BSC_CR]=0; // clear device
+   bscsReg[BSC_RSR]=0; // clear underrun and overrun errors
+   bscsReg[BSC_SLV]=0; // clear I2C slave address
+   bscsReg[BSC_IMSC]=0xf; // mask off all interrupts
+   bscsReg[BSC_ICR]=0x0f; // clear all interrupts
+
+   gpioSetMode(BSC_SDA_MOSI, PI_ALT3);
+   gpioSetMode(BSC_SCL_SCLK, PI_ALT3);
+}
+
+void bscTerm2(int mode)
+{
+   bscsReg[BSC_CR] = 0; // clear device
+   bscsReg[BSC_RSR]=0; // clear underrun and overrun errors
+   bscsReg[BSC_SLV]=0; // clear I2C slave address
+
+   gpioSetMode(BSC_SDA_MOSI, PI_INPUT);
+   gpioSetMode(BSC_SCL_SCLK, PI_INPUT);
+}
+
+int bscXfer2(bsc_xfer_t *xfer)
+{
+   static int bscMode = 0;
+
+   int copied=0;
+   int active, mode;
+
+   if (xfer->control)
+   {
+
+      //bscMode (0=None, 1=I2C, 2=SPI) tracks which GPIO have been set to BSC mode
+      if (xfer->control & 2) mode = 2; // SPI
+      else                   mode = 1; // I2C
+
+      if (mode > bscMode)
+      {
+         bscInit2(bscMode);
+         bscMode = mode;
+      }
+   }
+   else
+   {
+      if (bscMode) bscTerm2(bscMode);
+      bscMode = 0;
+      return 0; // leave ignore set
+   }
+
+   xfer->rxCnt = 0;
+
+   bscsReg[BSC_SLV] = ((xfer->control)>>16) & 127;
+   bscsReg[BSC_CR] = (xfer->control) & 0x3fff;
+   bscsReg[BSC_RSR]=0; // clear underrun and overrun errors
+
+   active = 1;
+
+   while (active)
+   {
+      active = 0;
+
+      while ((copied < xfer->txCnt) &&
+             (!(bscsReg[BSC_FR] & BSC_FR_TXFF)))
+      {
+         bscsReg[BSC_DR] = xfer->txBuf[copied++];
+         active = 1;
+      }
+
+      while ((xfer->rxCnt < BSC_FIFO_SIZE) &&
+             (!(bscsReg[BSC_FR] & BSC_FR_RXFE)))
+      {
+         xfer->rxBuf[xfer->rxCnt++] = bscsReg[BSC_DR];
+         active = 1;
+      }
+
+      if (!active)
+      {
+         active = bscsReg[BSC_FR] & (BSC_FR_RXBUSY | BSC_FR_TXBUSY);
+      }
+
+      if (active) myGpioSleep(0, 20);
+   }
+
+   bscFR = bscsReg[BSC_FR] & 0xffff;
+
+   return (copied<<16) | bscFR;
+}
+*/
