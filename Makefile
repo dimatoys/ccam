@@ -1,6 +1,6 @@
-ACCOUNT1=pi@10.0.0.232
+ACCOUNTS=pi@10.0.0.232
 #ACCOUNT=pi@10.0.0.117
-ACCOUNT2=pi@10.0.0.147
+ACCOUNTM=pi@10.0.0.147
 
 PPATH=projects/ccam
 PICS=
@@ -10,32 +10,32 @@ LDFLAGS =  -g -Wall -lstdc++ -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_compon
 %.o : %.C
 	g++ -g -Wall -std=c++11 -I/opt/vc/include -c $< -o $@
 
-shutdown1:
-	ssh ${ACCOUNT1} "sudo shutdown -h now"
+shutdowns:
+	ssh ${ACCOUNTS} "sudo shutdown -h now"
 
-shutdown2:
-	ssh ${ACCOUNT2} "sudo shutdown -h now"
+shutdownm:
+	ssh ${ACCOUNTM} "sudo shutdown -h now"
 
-run2:
-	rsync -r . ${ACCOUNT2}:${PPATH}
-	ssh ${ACCOUNT2} "cd ${PPATH} ; make local_run"
+runm:
+	rsync -r . ${ACCOUNTM}:${PPATH}
+	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_run"
 
 master:
-	rsync -r . ${ACCOUNT2}:${PPATH}
-	ssh ${ACCOUNT2} "cd ${PPATH} ; make local_master"	
+	rsync -r . ${ACCOUNTM}:${PPATH}
+	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_master"	
 
 slave:
-	rsync -r . ${ACCOUNT1}:${PPATH}
-	ssh ${ACCOUNT1} "cd ${PPATH} ; make local_slave"	
+	rsync -r . ${ACCOUNTS}:${PPATH}
+	ssh ${ACCOUNTS} "cd ${PPATH} ; make local_slave"	
 
 
-build1:
-	rsync -r . ${ACCOUNT1}:${PPATH}
-	ssh ${ACCOUNT1} "cd ${PPATH} ; make ccam"
+builds:
+	rsync -r . ${ACCOUNTS}:${PPATH}
+	ssh ${ACCOUNTS} "cd ${PPATH} ; make ccam"
 
-build2:
-	rsync -r . ${ACCOUNT2}:${PPATH}
-	ssh ${ACCOUNT2} "cd ${PPATH} ; make ccam"
+buildm:
+	rsync -r . ${ACCOUNTM}:${PPATH}
+	ssh ${ACCOUNTM} "cd ${PPATH} ; make ccam"
 
 build: build1 build2
 
@@ -55,5 +55,5 @@ local_cleanpics:
 	rm ~/${PPATH}/../ccampic/* 
 
 test:
-	ssh ${ACCOUNT2} "/opt/vc/bin/raspistill -o firstpic.jpg"
+	ssh ${ACCOUNTM} "/opt/vc/bin/raspistill -o firstpic.jpg"
 

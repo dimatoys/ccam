@@ -312,23 +312,138 @@ void testMasterSPI() {
     // If you call this, it will not actually access the GPIO
     // Use for testing
      //        bcm2835_set_debug(1);
+     
+/*
+    uint32_t *bcm2835_peripherals = (uint32_t *)MAP_FAILED;
+	if ((memfd = open("/dev/mem", O_RDWR | O_SYNC) ) < 0) 
+	{
+	  fprintf(stderr, "bcm2835_init: Unable to open /dev/mem: %s\n",
+		  strerror(errno)) ;
+	  goto exit;
+	}
+      
+      // Base of the peripherals block is mapped to VM
+      bcm2835_peripherals = mapmem("gpio", bcm2835_peripherals_size, memfd, (off_t)bcm2835_peripherals_base);
+      if (bcm2835_peripherals == MAP_FAILED) goto exit;
+      
+      // Now compute the base addresses of various peripherals, 
+      // which are at fixed offsets within the mapped peripherals block
+      // Caution: bcm2835_peripherals is uint32_t*, so divide offsets by 4
+
+      bcm2835_spi0 = bcm2835_peripherals + BCM2835_SPI0_BASE/4;
+*/
+     
+     
     if (!bcm2835_init())
     {
       printf("bcm2835_init failed. Are you running as root??\n");
       return;
     }
+    /*
+
+	volatile uint32_t* paddr;
+
+    if (bcm2835_spi0 == MAP_FAILED)
+      return 0; // bcm2835_init() failed, or not root
+    
+    // Set the SPI0 pins to the Alt 0 function to enable SPI0 access on them
+    bcm2835_gpio_fsel(RPI_GPIO_P1_26, BCM2835_GPIO_FSEL_ALT0); // CE1
+    bcm2835_gpio_fsel(RPI_GPIO_P1_24, BCM2835_GPIO_FSEL_ALT0); // CE0
+    bcm2835_gpio_fsel(RPI_GPIO_P1_21, BCM2835_GPIO_FSEL_ALT0); // MISO
+    bcm2835_gpio_fsel(RPI_GPIO_P1_19, BCM2835_GPIO_FSEL_ALT0); // MOSI
+    bcm2835_gpio_fsel(RPI_GPIO_P1_23, BCM2835_GPIO_FSEL_ALT0); // CLK
+    
+    // Set the SPI CS register to the some sensible defaults
+    paddr = bcm2835_spi0 + BCM2835_SPI0_CS/4;
+    bcm2835_peri_write(paddr, 0); // All 0s
+    
+    // Clear TX and RX fifos
+    bcm2835_peri_write_nb(paddr, BCM2835_SPI0_CS_CLEAR);
+
+    */
     bcm2835_spi_begin();
+
+    //ignored
     bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);      // The default
+
+	/*
+	volatile uint32_t* paddr = bcm2835_spi0 + BCM2835_SPI0_CS/4;
+    // Mask in the CPO and CPHA bits of CS
+    bcm2835_peri_set_bits(paddr, mode << 2, BCM2835_SPI0_CS_CPOL | BCM2835_SPI0_CS_CPHA);
+	*/
+
     bcm2835_spi_setDataMode(BCM2835_SPI_MODE0);                   // The default
+    
+    /*
+    volatile uint32_t* paddr = bcm2835_spi0 + BCM2835_SPI0_CLK/4;
+    bcm2835_peri_write(paddr, divider);
+    */
+    
     bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_65536); // The default
+    
+    /*
+    volatile uint32_t* paddr = bcm2835_spi0 + BCM2835_SPI0_CS/4;
+    // Mask in the CS bits of CS
+    bcm2835_peri_set_bits(paddr, cs, BCM2835_SPI0_CS_CS);
+    */
+    
     bcm2835_spi_chipSelect(BCM2835_SPI_CS0);                      // The default
+    
+    /*
+    volatile uint32_t* paddr = bcm2835_spi0 + BCM2835_SPI0_CS/4;
+    uint8_t shift = 21 + cs;
+    // Mask in the appropriate CSPOLn bit
+    bcm2835_peri_set_bits(paddr, active << shift, 1 << shift);
+    */
+    
+    
     bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);      // the default
     
 	char* tbuf = (char*)"0123456789";
 	char rbuf[20];
 
-	//bcm2835_spi_transfernb(tbuf,rbuf,10);	
+	//bcm2835_spi_transfernb(tbuf,rbuf,10);
+	
+	
+	/*
+	volatile uint32_t* paddr = bcm2835_spi0 + BCM2835_SPI0_CS/4;
+    volatile uint32_t* fifo = bcm2835_spi0 + BCM2835_SPI0_FIFO/4;
+    uint32_t ret;
+
+    // This is Polled transfer as per section 10.6.1
+    // BUG ALERT: what happens if we get interupted in this section, and someone else
+    // accesses a different peripheral? 
+    // Clear TX and RX fifos
+    //
+    bcm2835_peri_set_bits(paddr, BCM2835_SPI0_CS_CLEAR, BCM2835_SPI0_CS_CLEAR);
+
+    // Set TA = 1
+    bcm2835_peri_set_bits(paddr, BCM2835_SPI0_CS_TA, BCM2835_SPI0_CS_TA);
+
+    // Maybe wait for TXD
+    while (!(bcm2835_peri_read(paddr) & BCM2835_SPI0_CS_TXD));
+
+    // Write to FIFO, no barrier
+    bcm2835_peri_write_nb(fifo, value);
+
+    // Wait for DONE to be set
+    while (!(bcm2835_peri_read_nb(paddr) & BCM2835_SPI0_CS_DONE));
+
+    // Read any byte that was sent back by the slave while we sere sending to it
+    ret = bcm2835_peri_read_nb(fifo);
+
+    // Set TA = 0, and also set the barrier
+    bcm2835_peri_set_bits(paddr, 0, BCM2835_SPI0_CS_TA);
+
+    return ret; 
+	*/
+	
+	
 	uint8_t v = bcm2835_spi_transfer(0x34);
+	printf("v=%X\n", (uint32_t)v);
+	v = bcm2835_spi_transfer(0x35);
+	printf("v=%X\n", (uint32_t)v);
+	v = bcm2835_spi_transfer(0x36);
 	printf("v=%X\n", (uint32_t)v);
 
     bcm2835_spi_end();
@@ -336,6 +451,38 @@ void testMasterSPI() {
 }
 
 #include <pigpio.h>
+
+void testMasterSPI2() {
+	int status = gpioInitialise();
+	if (status < 0){
+	    printf("Error initialize %d\n", status);
+	    return;
+	}
+
+	unsigned speed = 1000000;
+	int h = spiOpen(0, speed, 0);
+
+	if (h < 0){
+		printf("error spi open %d\n", h);
+	    return;
+	}
+
+	char tbuf[20];
+	tbuf[0] = 0x33;
+	tbuf[1] = 0x34;
+	tbuf[2] = 0x35;
+	char rbuf[16384];
+	rbuf[0] = 0x12;
+	rbuf[1] = 0x13;
+	rbuf[2] = 0x14;
+	status = spiXfer(h, tbuf, rbuf, 3);
+	printf("status=%d r=%X\n", status, (uint32_t)rbuf[0]);
+
+	spiClose(h);
+
+   gpioTerminate();
+
+}
 
 /*
 
@@ -383,15 +530,32 @@ STATUS: C04
 STATUS: 406
 RX: 00
 * 
-* 
-*  
+--------------------------
+STATUS0: 110406
+STATUS: 406
+STATUS: C04
+STATUS: 406
+RX: 00
+STATUS: 1C04
+STATUS: 406
+RX: 00 00 00
+STATUS: 1C04
+STATUS: 406
+RX: 00 00 00
+*
 */
 
+/*
+18 (MOSI),
+19 (SCLK) white
+20 (MISO)
+21 (CE)   yellow
+GRN       black
+*/
 
 void testSlaveSPI() {
 	bsc_xfer_t xfer;
     gpioInitialise();
-    //xfer.control = (0x0A<<16) | 0x305; // Set I2C slave Address to 0x0A
 	xfer.control = 0x303;
     int status = bscXfer(&xfer);
     if (status >= 0) {
@@ -418,6 +582,144 @@ void testSlaveSPI() {
 		printf("cannot initialize SPI %d\n", status);
 	}
 }
+//--------------------------------------------------------------------------------------------
+
+// 2 - SDA
+// 3 - SCL
+
+void testMasterIIC() {
+	if (!bcm2835_init())
+    {
+      printf("bcm2835_init failed. Are you running as root??\n");
+      return;
+    }
+      
+    if (!bcm2835_i2c_begin())
+    {
+        printf("bcm2835_i2c_begin failed. Are you running as root??\n");
+        return;
+    }
+          
+    bcm2835_i2c_setSlaveAddress(0x13);
+    bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_148);
+
+	uint8_t data = bcm2835_i2c_write("0123456789012345", 16);
+    printf("Write Result = %X\n", (uint32_t)data);
+	data = bcm2835_i2c_write("0123456789012345", 16);
+    printf("Write Result = %X\n", (uint32_t)data);
+	data = bcm2835_i2c_write("0123456789012345", 16);
+    printf("Write Result = %X\n", (uint32_t)data);
+    
+    bcm2835_i2c_end();   
+    bcm2835_close();
+}
+
+void testMasterIIC2() {
+	int status = gpioInitialise();
+	if (status < 0){
+	    printf("Error initialize %d\n", status);
+	    return;
+	}
+
+	int h = i2cOpen(1, 0x13, 0);
+
+	if (h < 0){
+		printf("error i2c open %d\n", h);
+	    return;
+	}
+
+    status = i2cWriteByteData(h, 0x33, 0x41);
+    printf("status:%d\n", status);
+	
+    status = i2cWriteByteData(h, 0x33, 0x42);
+    printf("status:%d\n", status);
+
+    status = i2cWriteByteData(h, 0x33, 0x43);
+    printf("status:%d\n", status);
+	
+	i2cClose(h);
+
+   gpioTerminate();
+}
+
+// 18 (SDA)
+// 19 (SCL)
+
+void testSlaveIIC() {
+	
+	int status = gpioInitialise();
+	if (status > 0) {
+		int last_status = status;
+		bsc_xfer_t xfer;
+		xfer.control = (0x13<<16) | 0x305;
+
+		memcpy(xfer.txBuf, "ABCD", 4);
+		xfer.txCnt = 4;
+
+		while(1) {
+			status = bscXfer(&xfer);
+			if (last_status != status) {
+				printf("STATUS: %0X\n", status);
+				last_status = status;
+			}
+            if (xfer.rxCnt > 0) {
+				printf("RX:");
+				for (int i = 0; i < xfer.rxCnt; ++i) {
+					printf(" %02X", (uint32_t)xfer.rxBuf[i]);
+				}
+				printf("\n");
+            }
+		}
+	} else {
+		printf("Error intialize gpio %d\n", status);
+	}
+}
+
+/*
+STATUS: 400C2
+STATUS: 401C2
+STATUS: 402C2
+STATUS: 403C2
+STATUS: 10406
+STATUS: 406
+STATUS: C24
+STATUS: 406
+RX: 33 41 33 42 33 43
+STATUS: 1404
+STATUS: 406
+RX: 33 41 33 42 33 43
+STATUS: C24
+STATUS: 1404
+RX: 33 41
+STATUS: 406
+RX: 33 42 33 43 
+*/
+
+/*
+
+SSSSS	number of bytes successfully copied to transmit FIFO
+RRRRR	number of bytes in receieve FIFO
+TTTTT	number of bytes in transmit FIFO
+RB	receive busy
+TE	transmit FIFO empty
+RF	receive FIFO full
+TF	transmit FIFO full
+RE	receive FIFO empty
+TB	transmit busy
+
+S S S S |  S R R R | R R T T | T T T RB | TE TF RE TB
+
+
+STATUS: 842C
+STATUS: 406
+RX: 30 31 32 33 34 35 36 37 38 39 30 31 32 33 34 35
+STATUS: 840C
+RX: 30 31 32 33 34 35 36 37 38 39 30 31 32 33 34 35
+STATUS: 406
+RX: 30 31 32 33 34 35 36 37 38 39 30 31 32 33 34 35
+*/
+
+
 
 int main(int argn, char** argv) {
 	if (argn > 1) {
@@ -426,10 +728,14 @@ int main(int argn, char** argv) {
 			testCamera();
 			break;
 		case 'm':
-			testMasterSPI();
+			//testMasterSPI();
+			//testMasterSPI2();
+			testMasterIIC();
+			//testMasterIIC2();
 			break;
 		case 's':
-			testSlaveSPI();
+			//testSlaveSPI();
+			testSlaveIIC();
 			break;
 		}
 	}
