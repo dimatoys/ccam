@@ -1,4 +1,5 @@
-ACCOUNTS=pi@10.0.0.232
+#ACCOUNTS=pi@10.0.0.232
+ACCOUNTS=pi@10.0.0.184
 #ACCOUNT=pi@10.0.0.117
 ACCOUNTM=pi@10.0.0.147
 
@@ -16,7 +17,7 @@ shutdowns:
 shutdownm:
 	ssh ${ACCOUNTM} "sudo shutdown -h now"
 
-runm:
+runc:
 	rsync -r . ${ACCOUNTM}:${PPATH}
 	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_run"
 

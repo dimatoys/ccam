@@ -109,7 +109,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	// https://github.com/raspberrypi/userland/blob/master/interface/mmal/mmal_buffer.h
 	// http://www.jvcref.com/files/PI/documentation/html/struct_m_m_a_l___b_u_f_f_e_r___h_e_a_d_e_r___t.html
 	//printf("%llu: CALLBACK port=%s \n", bcm2835_st_read(),port->is_enabled ? "ENABLES" : "DISABLED");
-	dumpBuffer(buffer);
+	//dumpBuffer(buffer);
 	bool hasMoreSpace = fbuffer->AddFrame(buffer->data + buffer->offset);
 	mmal_buffer_header_release(buffer);
 	if (!hasMoreSpace) {
@@ -238,7 +238,7 @@ void testCamera() {
 	camera_component = setup(width, height, fps);
 	if (camera_component != NULL) {
 		fbuffer = new FramesBuffer(camera_component->output[MMAL_CAMERA_VIDEO_PORT]->buffer_size, 150);
-		// bcm2835_delay(2000);
+		bcm2835_delay(500);
 		start(camera_component);
 		// delay 
 		// start_recording
@@ -605,11 +605,15 @@ void testMasterIIC() {
 
 	uint8_t data = bcm2835_i2c_write("0123456789012345", 16);
     printf("Write Result = %X\n", (uint32_t)data);
-	data = bcm2835_i2c_write("0123456789012345", 16);
+	bcm2835_delay(5);
+
+	data = bcm2835_i2c_write("abcdefghijklmnop", 16);
     printf("Write Result = %X\n", (uint32_t)data);
-	data = bcm2835_i2c_write("0123456789012345", 16);
+	bcm2835_delay(5);
+
+	data = bcm2835_i2c_write("ABCDEFGHIJKLMNOP", 16);
     printf("Write Result = %X\n", (uint32_t)data);
-    
+
     bcm2835_i2c_end();   
     bcm2835_close();
 }
@@ -629,14 +633,20 @@ void testMasterIIC2() {
 	}
 
     status = i2cWriteByteData(h, 0x33, 0x41);
+	//status = i2cWriteI2CBlockData(h, 0x11, "0123456789012345", 16);
     printf("status:%d\n", status);
 	
     status = i2cWriteByteData(h, 0x33, 0x42);
+	//status = i2cWriteI2CBlockData(h, 0x12, "abcdefghijklmnop", 16);
     printf("status:%d\n", status);
 
     status = i2cWriteByteData(h, 0x33, 0x43);
+	//status = i2cWriteI2CBlockData(h, 0x13, "ABCDEFGHIJKLMNOP", 16);
     printf("status:%d\n", status);
-	
+
+	printf("%d %d %d\n", PI_BAD_HANDLE, PI_BAD_PARAM, PI_I2C_WRITE_FAILED);
+
+
 	i2cClose(h);
 
    gpioTerminate();
