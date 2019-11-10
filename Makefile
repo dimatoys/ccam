@@ -17,26 +17,28 @@ shutdowns:
 shutdownm:
 	ssh ${ACCOUNTM} "sudo shutdown -h now"
 
-runc:
+builda:
 	rsync -r . ${ACCOUNTM}:${PPATH}
-	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_run"
+	ssh ${ACCOUNTM} "cd ${PPATH} ; make ccam"
+
+runb:
+	rsync -r . ${ACCOUNTS}:${PPATH}
+	ssh ${ACCOUNTS} "cd ${PPATH} ; make ccam ; make local_cleanpics ; make cleana"
+	ssh ${ACCOUNTS} "cd ${PPATH} ; sudo ./ccam b ; cp ../ccampic/* ../ccampics/b ; rsync ${ACCOUNTM}:${PPATH}/../ccampic/* ../ccampics/a"
+	rsync -r ${ACCOUNTS}:${PPATH}/../ccampics ../ccampics
 
 master:
 	rsync -r . ${ACCOUNTM}:${PPATH}
-	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_master"	
+	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_master"
 
 slave:
 	rsync -r . ${ACCOUNTS}:${PPATH}
-	ssh ${ACCOUNTS} "cd ${PPATH} ; make local_slave"	
+	ssh ${ACCOUNTS} "cd ${PPATH} ; make local_slave"
 
 
 builds:
 	rsync -r . ${ACCOUNTS}:${PPATH}
 	ssh ${ACCOUNTS} "cd ${PPATH} ; make ccam"
-
-buildm:
-	rsync -r . ${ACCOUNTM}:${PPATH}
-	ssh ${ACCOUNTM} "cd ${PPATH} ; make ccam"
 
 build: build1 build2
 
@@ -44,6 +46,7 @@ ccam: ccam.o jpeg.o
 	g++ $^ $(LDFLAGS) -o $@
 
 local_run: ccam
+	rm ~/${PPATH}/../ccampic/*
 	sudo ./ccam c
 
 local_master: ccam
@@ -53,7 +56,10 @@ local_slave: ccam
 	sudo ./ccam s`
 
 local_cleanpics:
-	rm ~/${PPATH}/../ccampic/* 
+	rm -f ~/${PPATH}/../ccampic/* 
+
+cleana:
+	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_cleanpics"
 
 test:
 	ssh ${ACCOUNTM} "/opt/vc/bin/raspistill -o firstpic.jpg"

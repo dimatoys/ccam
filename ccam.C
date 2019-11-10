@@ -242,18 +242,17 @@ void testCamera() {
 		start(camera_component);
 		// delay 
 		// start_recording
-		bcm2835_delay(10000);
+		bcm2835_delay(500);
 		stop(camera_component);
 		mmal_component_destroy ( camera_component );
 		
 		printf("%d frames recorded\n", fbuffer->CurrentFrame);
-		/*
+
 		char filename[100];
 		for (int i = 0; i < fbuffer->CurrentFrame; ++i) {
 			sprintf(filename, "../ccampic/%03d.jpg", i);
 			write_jpeg_file(filename, fbuffer->GetFrame(i), width, height, depth);
 		}
-		*/
 	} else {
 		printf("Error setup camera\n");
 	}
@@ -729,7 +728,93 @@ STATUS: 406
 RX: 30 31 32 33 34 35 36 37 38 39 30 31 32 33 34 35
 */
 
+void runCamera(int gpio, int level, uint32_t tick, void* userdata) {
+	printf("GPIO %d became %u at %d\n", gpio, level, tick);
+	if (level == 1) {
+		fbuffer = new FramesBuffer(camera_component->output[MMAL_CAMERA_VIDEO_PORT]->buffer_size, 150);
+		start(camera_component);
+		bcm2835_delay(500);
+		stop(camera_component);
+		printf("%d frames recorded\n", fbuffer->CurrentFrame);
 
+		uint32_t width = 640;
+		uint32_t height = 480;
+		uint32_t depth = 3;
+
+		char filename[100];
+		for (int i = 0; i < fbuffer->CurrentFrame; ++i) {
+			sprintf(filename, "../ccampic/%03d.jpg", i);
+			write_jpeg_file(filename, fbuffer->GetFrame(i), width, height, depth);
+		}
+	}
+}
+
+/*
+
+M    S
+2 -> 18
+3 -> 19
+*/
+
+void testCameraA() {
+
+	printf("Setup\n");
+	uint32_t width = 640;
+	uint32_t height = 480;
+	uint32_t depth = 3;
+	uint32_t fps = 30;
+	bcm2835_init();
+	gpioInitialise();
+	camera_component = setup(width, height, fps);
+	if (camera_component != NULL) {
+		bcm2835_delay(500);
+		int status = gpioSetAlertFuncEx(2, runCamera, NULL);
+		printf("status=%d\n", status);
+		bcm2835_delay(1000000);
+		mmal_component_destroy ( camera_component );
+	} else {
+		printf("Error setup camera\n");
+	}
+
+	
+}
+
+void testCameraB() {
+
+	printf("Setup\n");
+	uint32_t width = 640;
+	uint32_t height = 480;
+	uint32_t depth = 3;
+	uint32_t fps = 30;
+	bcm2835_init();
+	gpioInitialise();
+	gpioSetMode(18, PI_OUTPUT);
+	gpioWrite(18, 0);
+	camera_component = setup(width, height, fps);
+	if (camera_component != NULL) {
+		fbuffer = new FramesBuffer(camera_component->output[MMAL_CAMERA_VIDEO_PORT]->buffer_size, 150);
+		bcm2835_delay(500);
+
+		gpioWrite(18, 1);
+		start(camera_component);
+		bcm2835_delay(500);
+		stop(camera_component);
+
+		mmal_component_destroy ( camera_component );
+		
+		printf("%d frames recorded\n", fbuffer->CurrentFrame);
+
+		char filename[100];
+		for (int i = 0; i < fbuffer->CurrentFrame; ++i) {
+			sprintf(filename, "../ccampic/%03d.jpg", i);
+			write_jpeg_file(filename, fbuffer->GetFrame(i), width, height, depth);
+		}
+	} else {
+		printf("Error setup camera\n");
+	}
+
+
+}
 
 int main(int argn, char** argv) {
 	if (argn > 1) {
@@ -746,6 +831,12 @@ int main(int argn, char** argv) {
 		case 's':
 			//testSlaveSPI();
 			testSlaveIIC();
+			break;
+		case 'a':
+			testCameraA();
+			break;
+		case 'b':
+			testCameraB();
 			break;
 		}
 	}
