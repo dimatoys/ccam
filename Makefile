@@ -21,6 +21,11 @@ builda:
 	rsync -r . ${ACCOUNTM}:${PPATH}
 	ssh ${ACCOUNTM} "cd ${PPATH} ; make ccam"
 
+runb2:
+	rsync -r . ${ACCOUNTS}:${PPATH}
+	ssh ${ACCOUNTS} "cd ${PPATH} ; make camera"
+	ssh ${ACCOUNTS} "cd ${PPATH} ; sudo ./camera b"
+
 runb:
 	rsync -r . ${ACCOUNTS}:${PPATH}
 	ssh ${ACCOUNTS} "cd ${PPATH} ; make ccam ; make local_cleanpics ; make cleana"
@@ -43,6 +48,9 @@ builds:
 build: build1 build2
 
 ccam: ccam.o jpeg.o
+	g++ $^ $(LDFLAGS) -o $@
+
+camera: camera.o main.o
 	g++ $^ $(LDFLAGS) -o $@
 
 local_run: ccam
