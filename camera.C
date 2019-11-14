@@ -144,6 +144,8 @@ void TCamera::Init(uint32_t width,
 
 void TCamera::Start() {
 	if (Instance != NULL) {
+		printf("Start camera\n");
+		fflush(stdout);
 		MMAL_PORT_T* video_port = ((MMAL_COMPONENT_T*)Instance->Camera)->output[MMAL_CAMERA_VIDEO_PORT];
 		MMAL_STATUS_T status = mmal_port_parameter_set_boolean(video_port, MMAL_PARAMETER_CAPTURE, 1);
 		if (status != MMAL_SUCCESS) {
@@ -154,6 +156,8 @@ void TCamera::Start() {
 
 void TCamera::Stop() {
 	if (Instance != NULL) {
+		printf("Stop camera\n");
+		fflush(stdout);
 		MMAL_PORT_T* video_port = ((MMAL_COMPONENT_T*)Instance->Camera)->output[MMAL_CAMERA_VIDEO_PORT];
 		MMAL_STATUS_T status = mmal_port_parameter_set_boolean(video_port, MMAL_PARAMETER_CAPTURE, 0);
 		if (status != MMAL_SUCCESS) {
@@ -194,8 +198,9 @@ TCameraMemory* TCameraMemory::Init(uint32_t width,
 }
 
 void TCameraMemory::Write(uint8_t *data, uint32_t length, int64_t  pts) {
-	if (!Buffer->AddFrame(data)) {
-		Stop();
-	}
+	//if (!Buffer->AddFrame(data)) {
+	//	Stop();
+	//}
+	Buffer->AddFrame(data);
 }
 

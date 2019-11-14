@@ -40,13 +40,13 @@ public:
 };
 
 class FramesBuffer {
-	int      FrameSize;
+	uint32_t FrameSize;
 	uint8_t* Buffer;
-	int      Frames;
+	uint32_t Frames;
 public:
-	int      CurrentFrame;
+	uint32_t CurrentFrame;
 
-	FramesBuffer(int frame_size, int frames) {
+	FramesBuffer(uint32_t frame_size, uint32_t frames) {
 		FrameSize = frame_size;
 		Frames = frames;
 		Buffer = new uint8_t[FrameSize * Frames];
