@@ -63,9 +63,9 @@ void testCameraB() {
 		char buffer[300];
 		for (uint32_t i = 0; i < mc->Buffer->CurrentFrame; ++i) {
 			TImage image(width, height, depth, mc->Buffer->GetFrame(i));
-			sprintf(buffer, "../ccampic/%d.dump", i);
+			sprintf(buffer, "../ccampic/%3d.dump", i);
 			image.Save(buffer);
-			sprintf(buffer, "../ccampic/%d.jpg", i);
+			sprintf(buffer, "../ccampic/%3d.jpg", i);
 			image.SaveJpg(buffer);
 		}
 	}

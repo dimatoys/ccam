@@ -4,9 +4,8 @@ ACCOUNTS=pi@10.0.0.184
 ACCOUNTM=pi@10.0.0.147
 
 PPATH=projects/ccam
-PICS=
 
-LDFLAGS =  -g -Wall -lstdc++ -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_components -lmmal_util -lmmal_core -lbcm2835 -ljpeg -lpigpio
+LDFLAGS =  -g -Wall -lstdc++
 
 %.o : %.C
 	g++ -g -Wall -std=c++11 -I/opt/vc/include -c $< -o $@
@@ -57,10 +56,13 @@ builds:
 build: build1 build2
 
 ccam: ccam.o jpeg.o
-	g++ $^ $(LDFLAGS) -o $@
+	g++ $^ $(LDFLAGS) -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_components -lmmal_util -lmmal_core -lbcm2835 -ljpeg -lpigpio -o $@
 
 camera: camera.o main.o image.o jpeg.o
-	g++ $^ $(LDFLAGS) -o $@
+	g++ $^ $(LDFLAGS) -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_components -lmmal_util -lmmal_core -lbcm2835 -ljpeg -lpigpio -o $@
+
+process: process.o image.o jpeg.o
+	g++ $^ $(LDFLAGS) -ljpeg -o $@
 
 local_run: ccam
 	rm ~/${PPATH}/../ccampic/*
@@ -80,4 +82,7 @@ cleana:
 
 test:
 	ssh ${ACCOUNTM} "/opt/vc/bin/raspistill -o firstpic.jpg"
+
+clean:
+	rm -f *.o *.jpg ccam camera process
 

@@ -26,11 +26,10 @@ TImage* TImage::Load(const char* fileName) {
 
 			printf("LoadDump: %d x %d : %d\n", width, height, depth);
 
-			uint32_t size = width * height * depth;
-			void* data = new uint8_t[size];
-			fread(data, 1, size, file);
+			TImage* img = new TImage(width, height, depth);
+			fread(img->Data, 1, img->GetSize(), file);
 			fclose(file);
-			return new TImage(width, height, depth, data);
+			return img;
 		} else {
 			return NULL;
 		}
