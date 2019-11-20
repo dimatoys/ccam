@@ -31,7 +31,7 @@ runb2:
 	#rm -f ../ccampic/*
 	#rsync -r ${ACCOUNTS}:${PPATH}/../ccampic/* ../ccampic
 	rm -f ../ccampics/*/*
-	ssh ${ACCOUNTS} "cd ${PPATH} ; cp ../ccampic/* ../ccampics/b ; rsync ${ACCOUNTM}:${PPATH}/../ccampic/* ../ccampics/a"
+	ssh ${ACCOUNTS} "cd ${PPATH} ; rm -f ../ccampics/*/* ; cp ../ccampic/* ../ccampics/b ; rsync ${ACCOUNTM}:${PPATH}/../ccampic/* ../ccampics/a"
 	rsync -r ${ACCOUNTS}:${PPATH}/../ccampics ..
 
 runb:
@@ -61,8 +61,11 @@ ccam: ccam.o jpeg.o
 camera: camera.o main.o image.o jpeg.o
 	g++ $^ $(LDFLAGS) -L/opt/vc/lib -L/usr/local/lib -lmmal -lmmal_components -lmmal_util -lmmal_core -lbcm2835 -ljpeg -lpigpio -o $@
 
-process: process.o image.o jpeg.o
+process: process.o image.o jpeg.o regression.o
 	g++ $^ $(LDFLAGS) -ljpeg -o $@
+
+runp: process
+	./process ../green/a/10.dump ../green/b/010.dump d.jpg
 
 local_run: ccam
 	rm ~/${PPATH}/../ccampic/*
@@ -75,7 +78,7 @@ local_slave: ccam
 	sudo ./ccam s`
 
 local_cleanpics:
-	rm -f ~/${PPATH}/../ccampic/* 
+	rm -f ~/${PPATH}/../ccampic/*
 
 cleana:
 	ssh ${ACCOUNTM} "cd ${PPATH} ; make local_cleanpics"

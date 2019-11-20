@@ -31,6 +31,7 @@ TImage* TImage::Load(const char* fileName) {
 			fclose(file);
 			return img;
 		} else {
+			printf("Cannot open %s\n", fileName);
 			return NULL;
 		}
 }
