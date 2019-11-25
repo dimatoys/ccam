@@ -65,7 +65,8 @@ process: process.o image.o jpeg.o regression.o
 	g++ $^ $(LDFLAGS) -ljpeg -o $@
 
 runp: process
-	./process ../green/a/10.dump ../green/b/010.dump d.jpg
+	rm -f d.jpg
+	./process ../ccampics/a/10.dump d.jpg
 
 local_run: ccam
 	rm ~/${PPATH}/../ccampic/*
@@ -87,5 +88,5 @@ test:
 	ssh ${ACCOUNTM} "/opt/vc/bin/raspistill -o firstpic.jpg"
 
 clean:
-	rm -f *.o *.jpg ccam camera process
+	rm -f *.o *.jpg *.csv ccam camera process
 

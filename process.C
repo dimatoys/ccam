@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <limits>
 
 void process(TImage* inpA, TImage* inpB) {
 	uint32_t y = 150;
@@ -35,102 +36,179 @@ void process(const char* inpAfile, const char* inpBfile, const char* outfile) {
 	out.SaveJpg(outfile);
 }
 
-class TGradient {
-
-	virtual void processSumIY(uint32_t x, uint32_t y, int* siy)=0;
+template<typename T>
+class TPicture {
 
 public:
 	uint32_t Width;
 	uint32_t Height;
-	uint32_t Depth;
 
-	void countGradients(TImage* in, uint32_t freq) {
-		Width = in->Width - freq;
-		Height = in->Height;
-		Depth = in->Depth;
 
+	T* OutBuffer;
+	T  Min;
+	T  Max;
+
+	TPicture(uint32_t width, uint32_t height) {
+		Width = width;
+		Height = height;
+		OutBuffer = new int[Width * Height];
+		Min = std::numeric_limits<T>::max();
+		Max = std::numeric_limits<T>::min();
+	}
+
+	~TPicture() {
+		delete OutBuffer;
+	}
+
+	void Set(uint32_t x, uint32_t y, T siy) {
+		if (siy < Min) {
+			Min = siy;
+		}
+		if (siy > Max) {
+			Max = siy;
+		}
+		OutBuffer[y * Width + x] = siy;
+	}
+
+};
+
+struct TDot {
+	uint16_t X0;
+	uint16_t X1;
+	uint32_t Up;
+	uint16_t Count;
+};
+
+struct TGradient {
+
+	int MinValue;
+	const uint16_t NO_VALUE = std::numeric_limits<uint16_t>::max();
+
+	TGradient(int minValue) {
+		MinValue = minValue;
+	}
+
+	TPicture<int>* countGradients(TImage* in, uint32_t freq) {
 		int half = freq / 2;
-		int siy[Depth];
-		int sumy[Depth];
+		int siy[in->Depth];
+		int sumy[in->Depth];
 
-		for (uint32_t y = 0; y < Height; ++y) {
-			memset(siy, 0, Depth * sizeof(int));
-			memset(sumy, 0, Depth * sizeof(int));
+		TPicture<int>* out = new TPicture<int>(in->Width - freq, in->Height);
+		TDot* dots = new TDot[out->Width * out->Height / 2];
+		uint16_t ystart[out->Height];
+		uint32_t current = 0;
+		dots[0].X0 = NO_VALUE;
+
+		for (uint32_t y = 0; y < in->Height; ++y) {
+			fflush(stdout);
+			memset(siy, 0, in->Depth * sizeof(int));
+			memset(sumy, 0, in->Depth * sizeof(int));
 			for (uint32_t i = 0; i < freq; ++i) {
 				auto pixel = in->Get(i, y);
-				for (uint32_t c = 0; c < Depth; ++c) {
+				for (uint32_t c = 0; c < in->Depth; ++c) {
 					sumy[c] += (int)pixel[c];
 					siy[c] += ((int)i - half) * pixel[c];
 				}
 			}
 
-			processSumIY(0, y, siy);
+			ystart[y] = current;
+			processSumIY(out, 0, y, in->Depth, dots, &current, siy);
 
 			uint32_t front = freq;
-			for (uint32_t x = 1; x < Width; ++x) {
+			for (uint32_t x = 1; x < out->Width; ++x) {
 				auto frontY = in->Get(front, y);
 				auto tailY = in->Get(front - freq, y);
-				for (uint32_t c = 0; c < Depth; ++c) {
+				for (uint32_t c = 0; c < in->Depth; ++c) {
 					sumy[c] -= tailY[c];
 					siy[c] += half * ((int)frontY[c] + (int)tailY[c]) - sumy[c];
 					sumy[c] += (int)frontY[c];
 				}
 				++front;
-				processSumIY(x, y, siy);
+				processSumIY(out, x, y, in->Depth, dots, &current, siy);
 			}
-		}
-	}
-};
-
-class TGradientScalar : public TGradient {
-
-	virtual void processSumIY(uint32_t x, uint32_t y, int siy) = 0;
-
-	void processSumIY(uint32_t x, uint32_t y, int* siy) {
-
-		int siy_max = 0;
-		for (uint32_t c = 0; c < Depth; ++c) {
-			int siy_abs = abs(siy[c]);
-			if (siy_abs > siy_max) {
-				siy_max = siy_abs;
+			if (dots[current].X0 != NO_VALUE) {
+				dots[current++].X1 = out->Width;
+				dots[current].X0 = NO_VALUE;
 			}
-		}
-
-		processSumIY(x, y, siy_max > 50 ? 1 : 0);
-	}
-};
-
-class TGradientPicture : public TGradientScalar {
-
-	void processSumIY(uint32_t x, uint32_t y, int siy) {
-		if (OutBuffer == NULL) {
-			OutBuffer = new int[Width * Height];
-			Min = siy;
-			Max = siy;
-		} else {
-			if (siy < Min) {
-				Min = siy;
-			} else {
-				if (siy > Max) {
-					Max = siy;
+			if (y > 0) {
+				auto upper = ystart[y - 1];
+				auto start = ystart[y];
+				for (auto i = start; i < current; ++i) {
+					while(upper < start) {
+						if (dots[upper].X1 + 1 >= dots[i].X0) {
+							if (dots[upper].X0 <= dots[i].X1 + 1) {
+								dots[i].Up = upper;
+								dots[i].Count = dots[upper].Count + 1;
+							}
+							break;
+						} else {
+							++upper;
+						}
+					}
 				}
 			}
 		}
-		OutBuffer[y * Width + x] = siy;
+
+		printf("current=%u\n", current);
+
+		TPicture<int>* out2 = new TPicture<int>(in->Width - freq, in->Height);
+		memset(out2->OutBuffer, 0, out2->Width * sizeof(out2->OutBuffer));
+		uint32_t cnt = 0;
+		for (int y0 = out2->Height - 1; y0 >= 0; --y0) {
+			while(current > ystart[y0]) {
+				--current;
+				if (dots[current].Count > 20) {
+					++cnt;
+					auto c = current;
+					auto y = y0;
+					while(1) {
+						for (uint16_t x = dots[c].X0; x < dots[c].X1; ++x) {
+							out2->Set(x, y, 1);
+						}
+						out2->Set((dots[c].X0 + dots[c].X1) / 2, y, 2);
+						auto count = dots[c].Count;
+						dots[c].Count = 0;
+						if (count <= 1) {
+							break;
+						}
+						--y;
+						c = dots[c].Up;
+					}
+				}
+			}
+		}
+		printf("filered: %u\n", cnt);
+		out2->Min = 0;
+		delete dots;
+		return out2;
 	}
 
-public:
-	int* OutBuffer;
-	int  Min;
-	int  Max;
+	void processSumIY(TPicture<int>* out,
+	                  uint16_t  x,
+	                  uint16_t  y,
+	                  uint8_t   depth,
+	                  TDot*     dots,
+	                  uint32_t* current,
+	                  int*      siy) {
 
-	TGradientPicture() {
-		OutBuffer = NULL;
-	}
+		for (uint8_t c = 0; c < depth; ++c) {
+			int siy_abs = abs(siy[c]);
+			if (siy_abs > MinValue) {
+				out->Set(x, y, 1);
+				if (dots[*current].X0 == NO_VALUE) {
+					dots[*current].X0 = x;
+					dots[*current].Count = 1;
 
-	~TGradientPicture() {
-		if (OutBuffer != NULL) {
-			delete OutBuffer;
+				}
+				return;
+			}
+		}
+
+		out->Set(x, y, 0);
+		if (dots[*current].X0 != NO_VALUE) {
+			dots[(*current)++].X1 = x;
+			dots[*current].X0 = NO_VALUE;
+			
 		}
 	}
 };
@@ -140,9 +218,9 @@ void process1(const char* inFile, const char* outFile) {
 	uint32_t freq = 5;
 
 	TImage* in = TImage::Load(inFile);
-	
-	TGradientPicture gp;
-	gp.countGradients(in, freq);
+
+	TGradient gp(50);
+	TPicture<int>* outp = gp.countGradients(in, freq);
 
 /*
 	for (uint32_t x = 0; x < gp.Width; ++x) {
@@ -156,16 +234,16 @@ void process1(const char* inFile, const char* outFile) {
 		       gp.OutBuffer[140 * gp.Width + x]);
 	}
 */
-	auto ptr = gp.OutBuffer;
-	TImage out(in->Width + gp.Width, in->Height, in->Depth);
+	auto ptr = outp->OutBuffer;
+	TImage out(in->Width + outp->Width, in->Height, in->Depth);
 
 	for (uint32_t y = 0; y < out.Height; ++y) {
 		for (uint32_t x = 0; x < in->Width; ++x) {
 			memcpy(out.Get(x, out.Height - y - 1), in->Get(x,y), out.Depth);
 		}
 
-		for (uint32_t x = 0; x < gp.Width; ++x) {
-			double value = gp.Max > gp.Min ? 255 * (*ptr - gp.Min) / (gp.Max - gp.Min) : 0;
+		for (uint32_t x = 0; x < outp->Width; ++x) {
+			double value = outp->Max > outp->Min ? 255 * (*ptr - outp->Min) / (outp->Max - outp->Min) : 0;
 			++ptr;
 			uint8_t* pixel = out.Get(x + in->Width, out.Height - y - 1);
 			for (uint32_t c = 0; c < out.Depth; ++c) {
@@ -175,6 +253,7 @@ void process1(const char* inFile, const char* outFile) {
 	}
 
 	delete in;
+	delete outp;
 	out.SaveJpg(outFile);
 }
 
