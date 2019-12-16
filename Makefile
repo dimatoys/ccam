@@ -66,7 +66,7 @@ process: process.o image.o jpeg.o regression.o
 
 runp: process
 	rm -f d.jpg
-	./process ../ccampics/a/10.dump d.jpg
+	./process ../ccampics/a/10.dump ../ccampics/b/010.dump d.jpg
 
 local_run: ccam
 	rm ~/${PPATH}/../ccampic/*

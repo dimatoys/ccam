@@ -2,6 +2,7 @@
 #include "jpeg.h"
 
 #include <stdio.h>
+#include <string.h>
 
 void TImage::Save(const char* fileName) {
 	FILE *outfile = fopen( fileName, "wb");
@@ -38,4 +39,17 @@ TImage* TImage::Load(const char* fileName) {
 
 void TImage::SaveJpg(const char* fileName) {
 	write_jpeg_file(fileName, Data, Width, Height, Depth);
+}
+
+void TImage::Flip() {
+	auto halfy = Height / 2;
+	auto line_size = Width * Depth;
+	uint8_t buffer[line_size];
+	for (uint32_t y = 0; y < halfy; ++ y) {
+		auto line1 = Get(0, y);
+		auto line2 = Get(0, Height - 1 - y); 
+		memcpy(buffer, line1, line_size);
+		memcpy(line1, line2, line_size);
+		memcpy(line2, buffer, line_size);
+	}
 }

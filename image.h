@@ -38,6 +38,8 @@ public:
 		}
 	}
 
+	void Flip();
+
 	void Save(const char* fileName);
 	static TImage* Load(const char* fileName);
 
