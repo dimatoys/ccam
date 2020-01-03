@@ -493,68 +493,95 @@ struct Cell {
 	uint32_t Sum2[3];
 };
 
-struct TGradient3 {
-
-	const uint16_t NO_VALUE = std::numeric_limits<uint16_t>::max();
-	int      MinValue;
-	uint16_t EvalArea;
+struct TCountGradient {
 
 	uint32_t Width;
+	uint32_t Freq;
+	TImage*  Image;
 
-	TGradient3(int minValue, uint16_t evalArea) {
-		MinValue = minValue;
-		EvalArea = evalArea;
+	TCountGradient(uint32_t freq) {
+		Freq = freq;
 	}
 
-	void countGradients(TImage* in, uint32_t freq) {
-		int half = freq / 2;
-		int siy[in->Depth];
-		int sumy[in->Depth];
-		Width = in->Width - freq;
+	void countGradients() {
+		int half = Freq / 2;
+		int siy[Image->Depth];
+		int sumy[Image->Depth];
+		Width = Image->Width - Freq;
 
-		BorderInit(Width, in->Height);
-		for (uint32_t y = 0; y < in->Height; ++y) {
-			memset(siy, 0, in->Depth * sizeof(int));
-			memset(sumy, 0, in->Depth * sizeof(int));
-			for (uint32_t i = 0; i < freq; ++i) {
-				auto pixel = in->Get(i, y);
-				for (uint32_t c = 0; c < in->Depth; ++c) {
+		BorderInit(Width, Image->Height);
+		for (uint32_t y = 0; y < Image->Height; ++y) {
+			memset(siy, 0, Image->Depth * sizeof(int));
+			memset(sumy, 0, Image->Depth * sizeof(int));
+			for (uint32_t i = 0; i < Freq; ++i) {
+				auto pixel = Image->Get(i, y);
+				for (uint32_t c = 0; c < Image->Depth; ++c) {
 					sumy[c] += (int)pixel[c];
 					siy[c] += ((int)i - half) * pixel[c];
 				}
 			}
 
-			processSumIY(0, y, in->Depth, siy);
+			processSumIY(0, y, Image->Depth, siy);
 
-			uint32_t front = freq;
+			uint32_t front = Freq;
 			for (uint32_t x = 1; x < Width; ++x) {
-				auto frontY = in->Get(front, y);
-				auto tailY = in->Get(front - freq, y);
-				for (uint32_t c = 0; c < in->Depth; ++c) {
+				auto frontY = Image->Get(front, y);
+				auto tailY = Image->Get(front - Freq, y);
+				for (uint32_t c = 0; c < Image->Depth; ++c) {
 					sumy[c] -= tailY[c];
 					siy[c] += half * ((int)frontY[c] + (int)tailY[c]) - sumy[c];
 					sumy[c] += (int)frontY[c];
 				}
 				++front;
-				processSumIY(x, y, in->Depth, siy);
+				processSumIY(x, y, Image->Depth, siy);
 			}
 		}
 
 		//printf("current=%u\n", current);
 	}
 
+	virtual void processSumIY(uint16_t  x,
+	                          uint16_t  y,
+	                          uint8_t   depth,
+	                          int*      siy) = 0;
+	TPicture<uint8_t>* Border;
+	void BorderInit(uint32_t width, uint32_t height) {
+		Border = new TPicture<uint8_t>(width, height, 0);
+	}
+
+	void BorderSet(uint16_t  x,
+	               uint16_t  y) {
+		Border->Set(x,y, 0xFF);
+	}
+	
+	virtual void DrawShapes(TImage* out, uint32_t x0, uint32_t y0)=0;
+	virtual void initImage(TImage* in) {
+		Image = in;
+	}
+};
+
+struct TGradient3 : TCountGradient {
+
+	int      MinValue;
+	uint16_t EvalArea;
+
+	TGradient3(uint32_t freq, int minValue, uint16_t evalArea) : TCountGradient (freq) {
+		MinValue = minValue;
+		EvalArea = evalArea;
+	}
+
+	const uint16_t NO_VALUE = std::numeric_limits<uint16_t>::max();
+
 	uint16_t XCells;
 	Cell*    Cells;
-	TImage*  Image;
 	int      CMax;
 	uint32_t SumC[3];
 
-	void countCells(TImage* in, uint32_t freq) {
-		Image = in;
-		XCells = (in->Width - freq) / EvalArea;
+	void initImage(TImage* in) {
+
+		TCountGradient::initImage(in);
+		XCells = (in->Width - Freq) / EvalArea;
 		Cells = new Cell[XCells * in->Height];
-		
-		countGradients(in, freq);
 	}
 
 	void processSumIY(uint16_t  x,
@@ -603,14 +630,115 @@ struct TGradient3 {
 		}
 	}
 
-	TPicture<uint8_t>* Border;
-	void BorderInit(uint32_t width, uint32_t height) {
-		Border = new TPicture<uint8_t>(width, height, 0);
+	void DrawShapes(TImage* out, uint32_t x0, uint32_t y0) {
+		uint8_t border[3] = {255, 255, 255};
+		Cell* cell = Cells;
+		for (uint16_t y = 0; y < Image->Height; ++y) {
+			for (uint16_t i = 0; i < XCells; ++i, ++cell) {
+				auto x = i * EvalArea;
+				uint8_t* pixel = out->Get(x0 + x, y0 + y);
+				uint16_t p2;
+				if (cell->X != NO_VALUE) {
+					auto p1 = cell->X - x;
+					if (p1 > 0) {
+						uint8_t color1[3];
+						color1[0] = cell->Sum1[0] / p1;
+						color1[1] = cell->Sum1[1] / p1;
+						color1[2] = cell->Sum1[2] / p1;
+						for (auto j = 0; j < p1; ++j) {
+							memcpy(pixel, color1, 3);
+							pixel += 3;
+						}
+					}
+					memcpy(pixel, border, 3);
+					pixel += 3;
+					p2 = x + EvalArea - cell->X - 1;
+				} else {
+					p2 = EvalArea;
+				}
+				if (p2 > 0) {
+					uint8_t color2[3];
+					color2[0] = cell->Sum2[0] / p2;
+					color2[1] = cell->Sum2[1] / p2;
+					color2[2] = cell->Sum2[2] / p2;
+					for (auto j = 0; j < p2; ++j) {
+						memcpy(pixel, color2, 3);
+						pixel += 3;
+					}
+				}
+			}
+		}
+	}
+};
+
+struct TGradient5 : TCountGradient {
+
+	int      MinValue;
+	uint16_t EvalArea;
+
+	TGradient5(uint32_t freq, int minValue, uint16_t evalArea) : TCountGradient (freq) {
+		MinValue = minValue;
+		EvalArea = evalArea;
 	}
 
-	void BorderSet(uint16_t  x,
-	               uint16_t  y) {
-		Border->Set(x,y, 0xFF);
+	const uint16_t NO_VALUE = std::numeric_limits<uint16_t>::max();
+
+	uint16_t XCells;
+	Cell*    Cells;
+	int      CMax;
+	uint32_t SumC[3];
+
+	void initImage(TImage* in) {
+
+		TCountGradient::initImage(in);
+		XCells = (in->Width - Freq) / EvalArea;
+		Cells = new Cell[XCells * in->Height];
+	}
+
+	void processSumIY(uint16_t  x,
+	                  uint16_t  y,
+	                  uint8_t   depth,
+	                  int*      siy) {
+
+		if (x >= EvalArea * XCells) {
+			return;
+		}
+
+		Cell& cell = Cells[y * XCells + x / EvalArea];
+		if (x % EvalArea == 0) {
+			cell.X = NO_VALUE;
+			CMax = 0;
+			memset(SumC, 0, 3 * sizeof(uint32_t));
+			memset(cell.Sum2, 0, 3 * sizeof(uint32_t));
+		}
+
+		uint8_t* pixel = Image->Get(x, y);
+
+		bool hasMax = false;
+		for (uint8_t c = 0; c < depth; ++c) {
+			int siy_abs = abs(siy[c]);
+			if (siy_abs > MinValue) {
+				BorderSet(x, y);
+				if (cell.X == NO_VALUE || siy_abs > CMax) {
+					CMax = siy_abs;
+					hasMax = true;
+				}
+			}
+		}
+
+		if (hasMax) {
+			cell.X = x;
+			memcpy(cell.Sum1, SumC, 3 * sizeof(uint32_t));
+			memset(cell.Sum2, 0, 3 * sizeof(uint32_t));
+		} else {
+			for (uint8_t c = 0; c < depth; ++c) {
+				cell.Sum2[c] += pixel[c];
+			}
+		}
+
+		for (uint8_t c = 0; c < depth; ++c) {
+			SumC[c] += pixel[c];
+		}
 	}
 
 	void DrawShapes(TImage* out, uint32_t x0, uint32_t y0) {
@@ -654,14 +782,12 @@ struct TGradient3 {
 	}
 };
 
-void process3(const char* inFile1, const char* inFile2, const char* outFile) {
-
-	uint32_t freq = 5;
+void drawTwoPicures(TCountGradient& gp, const char* inFile1, const char* inFile2, const char* outFile) {
 
 	TImage* in = TImage::Load(inFile1);
 
-	TGradient3 gp(50, 30);
-	gp.countCells(in, freq);
+	gp.initImage(in);
+	gp.countGradients();
 
 	TImage out(in->Width + gp.Border->Width + gp.Width, in->Height * 2, in->Depth);
 
@@ -677,7 +803,8 @@ void process3(const char* inFile1, const char* inFile2, const char* outFile) {
 	delete in;
 
 	in = TImage::Load(inFile2);
-	gp.countCells(in, freq);
+	gp.initImage(in);
+	gp.countGradients();
 
 	for (uint32_t y = 0; y < in->Height; ++y) {
 		for (uint32_t x = 0; x < in->Width; ++x) {
@@ -697,7 +824,8 @@ void process3(const char* inFile1, const char* inFile2, const char* outFile) {
 struct XLine {
 	uint16_t X;
 	uint8_t  Color[3];
-	
+	uint16_t Power;
+	uint32_t UpIdx;
 };
 
 struct YLine {
@@ -826,7 +954,7 @@ struct TGradient4 {
 		}
 		++Count1;
 
-		if ((CMax > 0) && (/*x % EvalArea == EvalArea - 1*/ Count2 >= EvalArea)) {
+		if ((CMax > 0) && (Count2 >= EvalArea)) {
 			for (uint8_t c = 0; c < depth; ++c) {
 				if (abs(XLines[XIdx].Color[c] - (int)Sum2[c] / Count2) > MinDiff) {
 					++XIdx;
@@ -881,16 +1009,16 @@ struct TGradient4 {
 		uint16_t XIdx = 0;
 		for (uint16_t y = 0; y < Image->Height; ++y) {
 			uint16_t x = 0;
-			printf("%3hu:", Image->Height - y - 1);
+			//printf("%3hu:", Image->Height - y - 1);
 			for (;XIdx < YLines[y].XIdx; ++XIdx) {
 				while (x < XLines[XIdx].X) {
 					memcpy(out->Get(x0 + x++, y0 + y), XLines[XIdx].Color, 3);
 					//memcpy(out->Get(x0 + x++, y0 + y), black, 3);
 				}
-				printf(" [%3hhu,%3hhu,%3hhu] %3hu", XLines[XIdx].Color[0], XLines[XIdx].Color[1], XLines[XIdx].Color[2], XLines[XIdx].X);
+				//printf(" [%3hhu,%3hhu,%3hhu] %3hu", XLines[XIdx].Color[0], XLines[XIdx].Color[1], XLines[XIdx].Color[2], XLines[XIdx].X);
 				memcpy(out->Get(x0 + x++, y0 + y), border, 3);
 			}
-			printf(" [%3hhu,%3hhu,%3hhu]\n", YLines[y].Color[0], YLines[y].Color[1], YLines[y].Color[2]);
+			//printf(" [%3hhu,%3hhu,%3hhu]\n", YLines[y].Color[0], YLines[y].Color[1], YLines[y].Color[2]);
 			while (x < Width) {
 				memcpy(out->Get(x0 + x++, y0 + y), YLines[y].Color, 3);
 				//memcpy(out->Get(x0 + x++, y0 + y), black, 3);
@@ -944,8 +1072,10 @@ int main(int argn, char** argv) {
 		//process(argv[1], argv[2], argv[3]);
 		//process1(argv[1], argv[2], argv[3]);
 		//process2(argv[1], argv[2], argv[3]);
-		//process3(argv[1], argv[2], argv[3]);
-		process4(argv[1], argv[2], argv[3]);
+		//process4(argv[1], argv[2], argv[3]);
+		//TGradient3 gp(5, 50, 30);
+		TGradient5 gp(5, 50, 30);
+		drawTwoPicures(gp, argv[1], argv[2], argv[3]);
 	} else {
 		printf("Usage: %s imgA imgB out\n", argv[0]);
 	}
