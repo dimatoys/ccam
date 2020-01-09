@@ -739,6 +739,9 @@ struct TGradient5 : TCountGradient {
 		for (uint8_t c = 0; c < depth; ++c) {
 			SumC[c] += pixel[c];
 		}
+
+		if (((y + 1) % EvalArea == 0) && ((x + 1) % EvalArea == 0)) {
+		}
 	}
 
 	void DrawShapes(TImage* out, uint32_t x0, uint32_t y0) {
