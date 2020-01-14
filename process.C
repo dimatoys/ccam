@@ -671,6 +671,11 @@ struct TGradient3 : TCountGradient {
 	}
 };
 
+struct TArea {
+	double a;
+	double b;
+};
+
 struct TGradient5 : TCountGradient {
 
 	int      MinValue;
@@ -687,12 +692,23 @@ struct TGradient5 : TCountGradient {
 	Cell*    Cells;
 	int      CMax;
 	uint32_t SumC[3];
+	
+	double Ak;
+	double Ab;
+	double Bk;
+	double Bb;
+	
+	TArea* Areas;
+	int    aIdx;
 
 	void initImage(TImage* in) {
 
 		TCountGradient::initImage(in);
 		XCells = (in->Width - Freq) / EvalArea;
 		Cells = new Cell[XCells * in->Height];
+		Areas = new TArea[XCells * in->Height/ EvalArea];
+		aIdx = 0;
+		countLinearMatrix(EvalArea, Ak, Ab, Bk, Bb);
 	}
 
 	void processSumIY(uint16_t  x,
@@ -704,7 +720,8 @@ struct TGradient5 : TCountGradient {
 			return;
 		}
 
-		Cell& cell = Cells[y * XCells + x / EvalArea];
+		auto cellIdx = y * XCells + x / EvalArea;
+		Cell& cell = Cells[cellIdx];
 		if (x % EvalArea == 0) {
 			cell.X = NO_VALUE;
 			CMax = 0;
@@ -741,11 +758,21 @@ struct TGradient5 : TCountGradient {
 		}
 
 		if (((y + 1) % EvalArea == 0) && ((x + 1) % EvalArea == 0)) {
+			TArea& area = Areas[aIdx++];
+			area.a = 0;
+			area.b = 0;
+			for (int i = 0; i < EvalArea; ++i) {
+				Cell& ycell = Cells[cellIdx - i * XCells];
+				auto k = EvalArea - 1 - i;
+				area.a += ycell.X * (Ab + Ak * k);
+				area.b += ycell.X * (Bb + Bk * k);
+			}
 		}
 	}
 
 	void DrawShapes(TImage* out, uint32_t x0, uint32_t y0) {
 		uint8_t border[3] = {255, 255, 255};
+		uint8_t border2[3] = {255, 128, 128};
 		Cell* cell = Cells;
 		for (uint16_t y = 0; y < Image->Height; ++y) {
 			for (uint16_t i = 0; i < XCells; ++i, ++cell) {
@@ -779,6 +806,17 @@ struct TGradient5 : TCountGradient {
 						memcpy(pixel, color2, 3);
 						pixel += 3;
 					}
+				}
+			}
+		}
+		
+		auto yareas = in->Height/ EvalArea;
+		auto area = Areas;
+		for (uint32_t y = 0; y < yareas; ++y) {
+			for (uint32_t x = 0; x < XCells; ++x, ++area) {
+				for (uint32_t ay = 0; ay < EvalArea; ++ ay) {
+					uint8_t* pixel = out->Get(area->a * ay + area->b, y + ay);
+					memcpy(pixel, border2, 3);
 				}
 			}
 		}

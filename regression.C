@@ -111,6 +111,39 @@ void MakeRegressionMatrix(uint32_t width, uint32_t height, uint32_t n, double* d
 }
 
 /*
+y = [0, 1, 2, 3, 4]
+s = 1
+
+n = len(y)
+sum = n * (n-1) / 2
+sum2 = (n - 1) * n * (2 * n - 1) / 6
+
+D = (sum * sum - n * sum2)
+Ak = - n / (D * s)
+Ab = sum / (D * s)
+Bk = sum / D
+Bb = - sum2 / D
+
+a = 0
+b = 0
+for k in range(n):
+    a += y[k] * (Ab + Ak * k)
+    b += y[k] * (Bb + Bk * k)
+print(a, b)
+*/
+
+void countLinearMatrix(int32_t n, double& Ak, double& Ab, double& Bk, double& Bb) {
+	double sum = n * (n - 1) / 2;
+	double sum2 = (n - 1) * n * (2 * n - 1) / 6;
+	auto D = (sum * sum - n * sum2);
+	Ak = - n / D;
+    Ab = sum / D;
+    Bk = sum / D;
+    Bb = - sum2 / D;
+}
+
+
+/*
 void TStatImgSegmentsExtractor::MakeSmoothing() {
 	int n = Parameters->RegressionMatrix.Depth;
 	double* rm = Parameters->RegressionMatrix.Cell(0, 0);
