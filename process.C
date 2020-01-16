@@ -766,6 +766,9 @@ struct TGradient5 : TCountGradient {
 				auto k = EvalArea - 1 - i;
 				area.a += ycell.X * (Ab + Ak * k);
 				area.b += ycell.X * (Bb + Bk * k);
+				if (y / EvalArea == 0 && x / EvalArea == 0) {
+					printf("x=%u y=%d a=%f b=%f\n", ycell.X, k, area.a, area.b);
+				}
 			}
 		}
 	}
@@ -809,17 +812,20 @@ struct TGradient5 : TCountGradient {
 				}
 			}
 		}
-		
-		auto yareas = in->Height/ EvalArea;
+
+		auto yareas = Image->Height/ EvalArea;
 		auto area = Areas;
 		for (uint32_t y = 0; y < yareas; ++y) {
 			for (uint32_t x = 0; x < XCells; ++x, ++area) {
+				printf("(%u,%u) a=%f b=%f\n", x,y, area->a, area->b);
 				for (uint32_t ay = 0; ay < EvalArea; ++ ay) {
+					printf("[%f,%u]\n", area->a * ay + area->b, y + ay);
 					uint8_t* pixel = out->Get(area->a * ay + area->b, y + ay);
 					memcpy(pixel, border2, 3);
 				}
 			}
 		}
+
 	}
 };
 
