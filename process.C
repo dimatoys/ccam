@@ -757,18 +757,53 @@ struct TGradient5 : TCountGradient {
 			SumC[c] += pixel[c];
 		}
 
+/*
+
+x = [0,2,3]
+y = [0,4,6]
+
+n = len(x)
+
+sx = 0
+sy = 0
+sx2 = 0
+sxy = 0
+for i in range(n):
+    sx += x[i]
+    sy += y[i]
+    sx2 += x[i] * x[i]
+    sxy += x[i] * y[i]
+
+a = (n * sxy - sx * sy) / (n * sx2 - sx * sx)
+b = (sy * sx2 - sx * sxy) / (n * sx2 - sx * sx)
+
+print(a, b)
+
+*/
 		if (((y + 1) % EvalArea == 0) && ((x + 1) % EvalArea == 0)) {
 			TArea& area = Areas[aIdx++];
-			area.a = 0;
-			area.b = 0;
+			uint32_t sx = 0;
+			uint32_t sy = 0;
+			uint32_t sx2 = 0;
+			uint32_t sxy = 0;
+			uint16_t n = 0;
 			for (int i = 0; i < EvalArea; ++i) {
 				Cell& ycell = Cells[cellIdx - i * XCells];
-				auto k = EvalArea - 1 - i;
-				area.a += ycell.X * (Ab + Ak * k);
-				area.b += ycell.X * (Bb + Bk * k);
-				if (y / EvalArea == 0 && x / EvalArea == 0) {
-					printf("x=%u y=%d a=%f b=%f\n", ycell.X, k, area.a, area.b);
+				if (ycell.X != NO_VALUE) {
+					uint32_t k = EvalArea - 1 - i;
+					sx += ycell.X;
+					sy += k;
+					sx2 += ycell.X * (uint32_t)ycell.X;
+					sxy += ycell.X * k;
+					++n;
 				}
+			}
+			double d = n * sx2 - sx * sx;
+			if (d != 0) {
+				area.a = (n * sxy - sx * sy) / d;
+				area.b = (sy * sx2 - sx * sxy) / d;
+			} else {
+				area.a = NAN;
 			}
 		}
 	}
@@ -813,15 +848,18 @@ struct TGradient5 : TCountGradient {
 			}
 		}
 
-		auto yareas = Image->Height/ EvalArea;
+		auto yareas = Image->Height / EvalArea;
 		auto area = Areas;
 		for (uint32_t y = 0; y < yareas; ++y) {
 			for (uint32_t x = 0; x < XCells; ++x, ++area) {
 				printf("(%u,%u) a=%f b=%f\n", x,y, area->a, area->b);
 				for (uint32_t ay = 0; ay < EvalArea; ++ ay) {
-					printf("[%f,%u]\n", area->a * ay + area->b, y + ay);
-					uint8_t* pixel = out->Get(area->a * ay + area->b, y + ay);
-					memcpy(pixel, border2, 3);
+					uint32_t px = area->a * ay + area->b;
+					printf("[%u,%u]\n", px, y + ay);
+					if ((px >= 0) && (px < XCells)) {
+						uint8_t* pixel = out->Get(px, y + ay);
+						memcpy(pixel, border2, 3);
+					}
 				}
 			}
 		}
